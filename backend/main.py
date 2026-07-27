@@ -10,6 +10,9 @@ app = FastAPI(
     description="Full-scale Indian Stock Market Intelligence API covering every NSE/BSE equity and IPO.",
     version="3.1.0"
 )
+@app.get("/")
+def home():
+    return {"message": "Backend is live"}
 
 
 app.add_middleware(
