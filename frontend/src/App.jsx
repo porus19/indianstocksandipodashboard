@@ -57,7 +57,7 @@ export default function App() {
 
     const timer = setTimeout(async () => {
       try {
-        const res = await axios.get('http://127.0.0.1:8000/api/search-suggestions', {
+        const res = await axios.get('https://indianstocksandipodashboard.onrender.com/api/search-suggestions', {
           params: { q, search_type: 'equity' }
         });
         setStockSuggestions(res.data || []);
@@ -82,7 +82,7 @@ export default function App() {
 
     const timer = setTimeout(async () => {
       try {
-        const res = await axios.get('http://127.0.0.1:8000/api/search-suggestions', {
+        const res = await axios.get('https://indianstocksandipodashboard.onrender.com/api/search-suggestions', {
           params: { q, search_type: 'ipo' }
         });
         setIpoSuggestions(res.data || []);
@@ -106,7 +106,7 @@ export default function App() {
       setError(null);
       setHoveredIndex(null);
 
-      const response = await axios.get(`http://127.0.0.1:8000/api/company-data?symbol=${targetSymbol}&period=${targetTimeframe}`);
+      const response = await axios.get(`https://indianstocksandipodashboard.onrender.com/api/company-data?symbol=${targetSymbol}&period=${targetTimeframe}`);
       setData(response.data);
       if (!isTimeframeSwitch) setOverlayTickers([]);
     } catch (err) {
