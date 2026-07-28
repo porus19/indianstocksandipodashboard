@@ -4,7 +4,6 @@ import yfinance as yf
 import re
 from typing import List, Dict
 
-
 app = FastAPI(
     title="Universal Indian Stock Market Analytics & Valuation Engine",
     description="Full-scale Indian Stock Market Intelligence API covering every NSE/BSE equity and IPO.",
@@ -15,7 +14,6 @@ app = FastAPI(
 def home():
     return {"message": "Backend is live"}
 
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -23,7 +21,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 
 EXACT_PEER_MAP = {
     "ZOMATO.NS": [
@@ -58,7 +55,6 @@ EXACT_PEER_MAP = {
     ]
 }
 
-
 IPO_KEYWORDS = {
     "ipo", "recently listed", "new listing", "listed", "mainboard ipo", "sme ipo"
 }
@@ -78,23 +74,19 @@ BAD_WORDS = {
     "enterprise", "enterprises", "group", "private", "public", "plc"
 }
 
-
 def normalize_symbol(symbol: str) -> str:
     symbol = symbol.upper().strip()
     if "." not in symbol and not symbol.endswith(".BO"):
         symbol += ".NS"
     return symbol
 
-
 def clean_text(value: str) -> str:
     return re.sub(r"\s+", " ", (value or "").strip())
-
 
 def normalize_for_match(value: str) -> str:
     value = clean_text(value).lower()
     value = re.sub(r"[^a-z0-9\s.&/-]", "", value)
     return value
-
 
 def tokenize(text: str) -> List[str]:
     if not text:
@@ -103,7 +95,6 @@ def tokenize(text: str) -> List[str]:
     text = re.sub(r"[^a-z0-9\s/&-]", " ", text)
     raw = re.split(r"[\s/&-]+", text)
     return [w for w in raw if w and w not in BAD_WORDS and len(w) > 2]
-
 
 def looks_like_indian_equity(quote: Dict) -> bool:
     symbol = (quote.get("symbol") or "").upper()
@@ -126,7 +117,6 @@ def looks_like_indian_equity(quote: Dict) -> bool:
 
     return True
 
-
 def is_probable_ipo_result(quote: Dict) -> bool:
     joined = " ".join([
         str(quote.get("shortname") or ""),
@@ -135,7 +125,6 @@ def is_probable_ipo_result(quote: Dict) -> bool:
         str(quote.get("industry") or "")
     ]).lower()
     return any(k in joined for k in IPO_KEYWORDS)
-
 
 def score_search_result(query: str, quote: Dict, search_type: str) -> float:
     q = normalize_for_match(query)
@@ -173,7 +162,6 @@ def score_search_result(query: str, quote: Dict, search_type: str) -> float:
     score -= min(len(name) * 0.05, 6)
     return score
 
-
 def get_company_profile(stock, fallback_symbol: str = "") -> Dict:
     info = stock.info or {}
     fast = {}
@@ -210,7 +198,6 @@ def get_company_profile(stock, fallback_symbol: str = "") -> Dict:
         "keywords": keywords
     }
 
-
 def market_cap_score(target_cap: float, peer_cap: float) -> float:
     if not target_cap or not peer_cap or target_cap <= 0 or peer_cap <= 0:
         return 0.0
@@ -225,13 +212,11 @@ def market_cap_score(target_cap: float, peer_cap: float) -> float:
         return 6
     return 0
 
-
 def keyword_overlap_score(target_keywords: set, peer_keywords: set) -> float:
     if not target_keywords or not peer_keywords:
         return 0.0
     overlap = target_keywords.intersection(peer_keywords)
     return min(len(overlap) * 4, 20)
-
 
 def get_candidate_symbols_from_queries(symbol: str, sector: str, industry: str, summary: str) -> List[Dict]:
     queries = []
@@ -272,7 +257,6 @@ def get_candidate_symbols_from_queries(symbol: str, sector: str, industry: str, 
 
     return discovered
 
-
 def is_bad_peer(candidate_symbol: str, candidate_info: Dict, target_symbol: str, target_sector: str) -> bool:
     if candidate_symbol == target_symbol:
         return True
@@ -289,7 +273,6 @@ def is_bad_peer(candidate_symbol: str, candidate_info: Dict, target_symbol: str,
         return True
 
     return False
-
 
 def score_peer(target_profile: Dict, candidate_profile: Dict) -> float:
     score = 0.0
@@ -319,7 +302,6 @@ def score_peer(target_profile: Dict, candidate_profile: Dict) -> float:
     )
 
     return score
-
 
 def get_universal_market_peers(symbol: str, sector: str = "", industry: str = "", summary: str = ""):
     symbol = normalize_symbol(symbol)
@@ -440,7 +422,6 @@ def get_universal_market_peers(symbol: str, sector: str = "", industry: str = ""
         {"name": "HDFC Bank Ltd", "ticker": "HDFCBANK.NS"}
     ]
 
-
 @app.get("/api/search-suggestions", tags=["Search"])
 def get_search_suggestions(
     q: str = Query("", min_length=0, max_length=40),
@@ -528,7 +509,6 @@ def get_search_suggestions(
 
     return final_results[:8]
 
-
 @app.get("/api/company-data", tags=["Market Analytics"])
 def get_company_data(symbol: str, period: str = "1y", is_ipo: bool = False):
     symbol = normalize_symbol(symbol)
@@ -581,6 +561,7 @@ def get_company_data(symbol: str, period: str = "1y", is_ipo: bool = False):
         words = raw_summary.split()
         summary = " ".join(words[:135]) + "..." if len(words) > 140 else raw_summary
 
+        # These fallback metrics stay so the JSON payload doesn't break
         pe_ratio = info.get("trailingPE") or 22.0
         pb_ratio = info.get("priceToBook") or 3.5
         eps = info.get("trailingEps") or (current_price / pe_ratio if pe_ratio else 10.0)
@@ -609,18 +590,33 @@ def get_company_data(symbol: str, period: str = "1y", is_ipo: bool = False):
         hold_pct = 100 - (buy_pct + sell_pct)
         consensus_label = "Strong Buy" if buy_pct >= 65 else "Buy" if buy_pct >= 50 else "Hold" if hold_pct >= 30 else "Sell"
 
-        fair_price = eps * (pe_ratio * 0.9 if pe_ratio else 20.0)
+        # --- FIXED VALUATION LOGIC ---
+        # This replaces the recursive EPS logic that was forcing exactly 11.11% on missing data
+        target_mean = info.get("targetMeanPrice")
+        
+        if target_mean and target_mean > 0:
+            fair_price = float(target_mean)
+        else:
+            book_val = info.get("bookValue")
+            if book_val and book_val > 0:
+                # Modest premium to book value as a safe baseline proxy
+                fair_price = float(book_val * 1.5)
+            else:
+                # If all else fails, assume market is pricing it fairly rather than throwing a false 11.11% error
+                fair_price = current_price
+        
         pct_diff = ((current_price - fair_price) / fair_price) * 100 if fair_price else 0
-
-        if abs(pct_diff) <= 1.0:
-            valuation_status = "Fairly Valued"
-            valuation_detail = f"Trading near estimated fair value benchmark (₹{fair_price:.2f})."
-        elif current_price < fair_price:
+        
+        if pct_diff > 2.0:
+            valuation_status = f"Overpriced by {abs(pct_diff):.2f}%"
+            valuation_detail = f"Trading above estimated fair value benchmark (₹{fair_price:.2f})."
+        elif pct_diff < -2.0:
             valuation_status = f"Discounted by {abs(pct_diff):.2f}%"
             valuation_detail = f"Trading below estimated fair price (₹{fair_price:.2f})."
         else:
-            valuation_status = f"Overpriced by {pct_diff:.2f}%"
-            valuation_detail = f"Trading above estimated fair benchmark (₹{fair_price:.2f})."
+            valuation_status = "Fairly Valued"
+            valuation_detail = f"Trading near estimated fair value benchmark (₹{fair_price:.2f})."
+        # -----------------------------
 
         green_flags = []
         red_flags = []
@@ -654,7 +650,8 @@ def get_company_data(symbol: str, period: str = "1y", is_ipo: bool = False):
                 p_stock = yf.Ticker(p["ticker"])
                 p_info = p_stock.info
                 p_hist = p_stock.history(period=yf_period)
-                p_history_data = [{"date": d.strftime("%Y-%m-%d"), "price": round(float(r["Close"], 2))} for d, r in p_hist.iterrows()] if not p_hist.empty else history_data
+                # Fixed syntax error in round(float(...)) here
+                p_history_data = [{"date": d.strftime("%Y-%m-%d"), "price": round(float(r["Close"]), 2)} for d, r in p_hist.iterrows()] if not p_hist.empty else history_data
                 peers_processed.append({
                     "name": p["name"],
                     "ticker": p["ticker"],
@@ -701,7 +698,7 @@ def get_company_data(symbol: str, period: str = "1y", is_ipo: bool = False):
             "red_flags": red_flags,
             "history": history_data,
             "peers": peers_processed,
-            "news": formatted_news  # <--- Real-time news feed included here
+            "news": formatted_news
         }
 
     except Exception as e:
