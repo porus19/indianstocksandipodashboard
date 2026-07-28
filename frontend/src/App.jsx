@@ -75,8 +75,6 @@ export default function App() {
     const q = ipoSearchInput.trim();
 
     if (q.length < 2) {
-      setIpoSuggestions([]);
-      setShowIpoDropdown(false);
       return;
     }
 
@@ -366,10 +364,20 @@ export default function App() {
               type="text"
               value={ipoSearchInput}
               onChange={(e) => setIpoSearchInput(e.target.value)}
-              placeholder="Search IPO / recently listed company..."
+              placeholder="Click to view open & upcoming IPOs..."
               className="netflix-search-input ipo-input"
               autoComplete="off"
-              onFocus={() => ipoSuggestions.length > 0 && setShowIpoDropdown(true)}
+              onFocus={async () => {
+                try {
+                  const res = await axios.get('https://indianstocksandipodashboard.onrender.com/api/search-suggestions', {
+                    params: { q: '', search_type: 'ipo' }
+                  });
+                  setIpoSuggestions(res.data || []);
+                  setShowIpoDropdown(true);
+                } catch (err) {
+                  console.error(err);
+                }
+              }}
             />
             {showIpoDropdown && ipoSuggestions.length > 0 && (
               <div className="autocomplete-dropdown ipo-dropdown">
@@ -563,6 +571,38 @@ export default function App() {
                     ))}
                   </tbody>
                 </table>
+              </div>
+
+              {/* Real-Time Company News & Market Events */}
+              <div style={{ marginTop: '24px' }}>
+                <div className="section-title" style={{ marginBottom: '10px' }}>📰 Real-Time Company News & Market Events</div>
+                <div className="table-container" style={{ padding: '16px' }}>
+                  {data.news && data.news.length > 0 ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      {data.news.map((item, index) => (
+                        <div key={index} style={{ borderBottom: index !== data.news.length - 1 ? '1px solid #222' : 'none', paddingBottom: '10px' }}>
+                          <a 
+                            href={item.link} 
+                            target="_blank" 
+                            rel="noopener noreferrer" 
+                            style={{ color: '#ffffff', textDecoration: 'none', fontSize: '13px', fontWeight: 'bold' }}
+                            onMouseOver={(e) => e.target.style.color = '#e50914'}
+                            onMouseOut={(e) => e.target.style.color = '#ffffff'}
+                          >
+                            {item.title} ↗
+                          </a>
+                          <div style={{ fontSize: '11px', color: '#8c8c8c', marginTop: '4px' }}>
+                            Source: <span style={{ color: '#3b82f6' }}>{item.publisher}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ color: '#8c8c8c', fontSize: '12px', textAlign: 'center', padding: '10px' }}>
+                      No recent news articles found for this ticker today.
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
