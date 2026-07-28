@@ -8,8 +8,9 @@ from typing import List, Dict
 app = FastAPI(
     title="Universal Indian Stock Market Analytics & Valuation Engine",
     description="Full-scale Indian Stock Market Intelligence API covering every NSE/BSE equity and IPO.",
-    version="3.1.0"
+    version="3.2.0"
 )
+
 @app.get("/")
 def home():
     return {"message": "Backend is live"}
@@ -442,11 +443,19 @@ def get_universal_market_peers(symbol: str, sector: str = "", industry: str = ""
 
 @app.get("/api/search-suggestions", tags=["Search"])
 def get_search_suggestions(
-    q: str = Query("", min_length=1, max_length=40),
+    q: str = Query("", min_length=0, max_length=40),
     search_type: str = Query("all")
 ):
     query = q.strip()
     if not query:
+        if search_type == "ipo":
+            # Return popular open/upcoming IPO suggestions instantly on click
+            return [
+                {"symbol": "SWIGGY.NS", "name": "Swiggy Limited", "type": "ipo", "sector": "Consumer Services"},
+                {"symbol": "FIRSTCRY.NS", "name": "Brainbees Solutions (FirstCry)", "type": "ipo", "sector": "Retail / E-Commerce"},
+                {"symbol": "NTPCGREEN.NS", "name": "NTPC Green Energy", "type": "ipo", "sector": "Power / Renewable"},
+                {"symbol": "HYUNDAI.NS", "name": "Hyundai Motor India", "type": "ipo", "sector": "Automobile"}
+            ]
         return []
 
     results = []
@@ -527,6 +536,28 @@ def get_company_data(symbol: str, period: str = "1y", is_ipo: bool = False):
     try:
         stock = yf.Ticker(symbol)
         info = stock.info
+
+        # Extract real-time news via yfinance
+        raw_news = []
+        try:
+            raw_news = stock.news or []
+        except Exception:
+            raw_news = []
+
+        formatted_news = []
+        for item in raw_news[:5]:
+            if isinstance(item, dict):
+                title = item.get("title") or ""
+                publisher = item.get("publisher") or ""
+                link = item.get("link") or ""
+                pub_time = item.get("providerPublishTime") or ""
+                if title:
+                    formatted_news.append({
+                        "title": title,
+                        "publisher": publisher,
+                        "link": link,
+                        "time": pub_time
+                    })
 
         yf_period_map = {
             "1m": "1mo", "2m": "2mo", "1q": "3mo", "2q": "6mo",
@@ -623,7 +654,7 @@ def get_company_data(symbol: str, period: str = "1y", is_ipo: bool = False):
                 p_stock = yf.Ticker(p["ticker"])
                 p_info = p_stock.info
                 p_hist = p_stock.history(period=yf_period)
-                p_history_data = [{"date": d.strftime("%Y-%m-%d"), "price": round(float(r["Close"]), 2)} for d, r in p_hist.iterrows()] if not p_hist.empty else history_data
+                p_history_data = [{"date": d.strftime("%Y-%m-%d"), "price": round(float(r["Close"], 2))} for d, r in p_hist.iterrows()] if not p_hist.empty else history_data
                 peers_processed.append({
                     "name": p["name"],
                     "ticker": p["ticker"],
@@ -669,7 +700,8 @@ def get_company_data(symbol: str, period: str = "1y", is_ipo: bool = False):
             "green_flags": green_flags,
             "red_flags": red_flags,
             "history": history_data,
-            "peers": peers_processed
+            "peers": peers_processed,
+            "news": formatted_news  # <--- Real-time news feed included here
         }
 
     except Exception as e:
